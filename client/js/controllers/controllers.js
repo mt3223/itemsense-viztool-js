@@ -61,21 +61,23 @@ module.exports = (function (app) {
             selectProject().then(prj => $scope.$state.go("project", {id: prj.handle}, {reload: true}));
         };
         $scope.setEpcFilter = function () {
-            if (!$scope.project)
-                return;
-            var newFilter = window.prompt("Filter EPC by regular expression", $scope.project.epcFilter);
-            if (newFilter === null)
-                return;
-            $scope.project.epcFilter = newFilter;
-            $scope.$emit("shouldSave", "general");
+            if ($scope.project){
+                var newFilter = window.prompt("Filter EPC by regular expression", $scope.project.epcFilter);
+                if (newFilter !== null){
+                    $scope.project.epcFilter = newFilter;
+                    $scope.$emit("shouldSave", "general");
+                }
+            }
         };
         $scope.setFloorName = function () {
-            if (!$scope.project)
-                return;
-            var floorName = window.prompt("Set Floor Name for the project", $scope.project.floorName || "").trim();
-            if (!floorName) return;
-            $scope.$emit("shouldSave", "general");
-            $scope.project.floorName = floorName;
+            if ($scope.project)
+            {
+                var floorName = window.prompt("Set Floor Name for the project", $scope.project.floorName || "").trim();
+                if (floorName) {
+                    $scope.project.floorName = floorName;
+                    $scope.$emit("shouldSave", "general");
+                }
+            }
         };
         $scope.canStart = function () {
             if (!$scope.project)
@@ -236,19 +238,31 @@ module.exports = (function (app) {
             $scope.mainTab = {project: true};
 
             $scope.projectInfo = function () {
-                if (!$scope.project.job)
-                    return "";
-                var job = $scope.project.job,
-                    start = new Date(job.creationTime.substr(0, 24)),
-                    last = new Date(job.lastActivityTime.substr(0, 24)),
-                    duration = job.activeDuration.substr(2),
-                    activity = Math.round10((last.getTime() - start.getTime()) / 1000, -2);
-                duration = duration.substr(0, duration.length - 1);
-                if (job.status === "COMPLETE")
-                    return "Last job completed at " + last.toLocaleString() + " for " + duration + " seconds";
-                else if (job.status === "STOPPED")
-                    return "Last job cancelled at " + last.toLocaleString() + " after " + activity + " seconds";
-                return "Started " + start.toLocaleString() + " scheduled for " + job.job.durationSeconds + " seconds";
+                var message = "";
+                if ($scope.project.job){
+                    var job = $scope.project.job;
+
+                    var start = new Date(job.creationTime.substr(0, 24));
+                    var last = new Date(job.lastActivityTime.substr(0, 24));
+
+                    var duration = job.activeDuration.substr(2);
+                    duration = duration.substr(0, duration.length - 1);
+
+                    var activity = Math.round10((last.getTime() - start.getTime()) / 1000, -2);
+                    
+                    if (job.status === "COMPLETE"){
+                        message = "Last job completed at " + last.toLocaleString() + " for " + duration + " seconds";
+                    } else if (job.status === "STOPPED") {
+                        if(job.stopReason === "JOB_COMPLETED"){
+                            message = "Last job completed at " + last.toLocaleString() + " for " + duration + " seconds";
+                        } else {
+                            message = "Last job cancelled at " + last.toLocaleString() + " after " + activity + " seconds";
+                        }
+                    } else {
+                        message = "Started " + start.toLocaleString() + " scheduled for " + job.job.durationSeconds + " seconds";
+                    }
+                }
+                return message;
             };
             $scope.getFacilities = function () {
                 if ($scope.project.itemSense && $scope.project.user && $scope.project.password)

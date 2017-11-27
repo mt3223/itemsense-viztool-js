@@ -35,7 +35,7 @@ function wrapResults() {
                 var v = items[counter + 1] || items[1];
             }
         }
-    })
+    });
 
 }
 
@@ -241,7 +241,7 @@ function startProject(project) {
                     readPromise = wrapper.stash(wrapper.restCall({url: project.nodeRedEndPoint}))
                         .catch(error => {
                             console.log(error);
-                            return q.reject(error)
+                            return q.reject(error);
                         });
                     return readPromise;
                 },
@@ -270,9 +270,11 @@ function startProject(project) {
                     var job = _.merge({
                         "recipeName": "RTL",
                         "durationSeconds": 20,
-                        "playbackLoggingEnabled": false,
-                        "presenceLoggingEnabled": false,
-                        "startDelay": "PT0S"
+                        "startDelay": "PT0S",
+                        "reportToDatabaseEnabled": true,
+                        "reportToHistoryEnabled": true,
+                        "reportToMessageQueueEnabled": true,
+                        "reportToFileEnabled": true
                     }, opts);
 
                     return itemsenseApi.jobs.start(job).then(function (job) {
@@ -368,7 +370,7 @@ function startProject(project) {
                             return (err.message === "ETIMEDOUT") ?
                                 {name: reader.name, status: "disconnected"} :
                                 {name: reader.name, status: err.message};
-                        })
+                        });
                 },
                 getReaderHomePage(reader) {
                     return this.restCall({
