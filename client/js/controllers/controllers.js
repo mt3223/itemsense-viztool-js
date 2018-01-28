@@ -86,7 +86,7 @@ module.exports = (function (app) {
             var recipe = $scope.project.recipe ? _.find($scope.project.recipes, function (r) {
                     return r.name === $scope.project.recipe.name;
                 }) : null;
-            return recipe && ($scope.project.duration > 20);
+            return recipe && $scope.project.duration !== null;
         };
         $scope.targetClasses = function () {
             return "/project/" + $scope.project.handle + "/csv/classes";

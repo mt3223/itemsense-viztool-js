@@ -107,7 +107,7 @@ module.exports = (function (app) {
                         if (self.recipe)
                             return r.name === self.recipe.name;
                     });
-                    self.duration = data.job ? data.job.job.durationSeconds : 20;
+                    self.duration = data.job ? data.job.job.durationSeconds : null;
                     if (self.job) {
                         self.jobMonitor = !!self.jobMonitor;
                         self.pullItems = !!self.pullItems;
