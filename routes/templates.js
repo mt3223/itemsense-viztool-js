@@ -11,14 +11,14 @@ var express = require("express"),
     router = express.Router();
 
 function promiseReadFile(filename, encoding){
-    let defer = q.defer();
+    var defer = q.defer();
     if(!encoding) encoding = "utf8";
     fs.readFile(filename,encoding,defer.makeNodeResolver());
     return defer.promise;
 }
 
 function renderJade(req, res) {
-    let templateFileName = path.resolve(path.dirname(__dirname),
+    var templateFileName = path.resolve(path.dirname(__dirname),
         "views", "templates", req.params[0] );
     return promiseReadFile(templateFileName + ".jade")
         .catch(error => promiseReadFile(templateFileName + ".pug"))

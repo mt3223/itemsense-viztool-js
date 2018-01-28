@@ -16,8 +16,8 @@ const LocateUser = "impinjuser";
 const LocatePassword = "demo2016";
 
 function savePicToProject(projectId, item) {
-    let projectDir = util.getProjectDir(projectId);
-    let defer = q.defer();
+    var projectDir = util.getProjectDir(projectId);
+    var defer = q.defer();
     fs.ensureDirSync(projectDir);
     fs.writeFile(
         path.resolve(projectDir, "floorplan-" + item.ImageId + ".png"), //ToDo: specify the type of picture in the object
