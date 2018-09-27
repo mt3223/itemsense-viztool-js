@@ -8,9 +8,9 @@
 
 module.exports = (function (app) {
     app.factory("Stage", ["_", "$q", "$state", "$interval", "CreateJS", "Origin", "Ruler", "Tracer", "Zones", "Reader", "Item",
-        "TimeLapse", "StagePresentationArea",
+        "TimeLapse", "StagePresentationArea", "HeatMap",
         function (_, $q, $state, $interval, createjs, Origin, Ruler, Tracer, Zones, Reader, Item,
-                  TimeLapse, PresentationArea) {
+                  TimeLapse, PresentationArea, HeatMap) {
             var main = new createjs.Container(),
                 canvas = document.createElement("canvas"),
                 stage = new createjs.Stage(canvas),
@@ -18,7 +18,8 @@ module.exports = (function (app) {
                 floorPlan, project, bkWidth = 1300, bkHeight = 700, events = {}, zone = null, zoneCollection = [],
                 readers = [], reader = null,
                 items = {}, itemInterval = null, item = null, activeTweens = 0,
-                layers = ["Floorplan", "Origin", "Zone", "Field", "Reader", "Item", "Ruler", "Tracer", "TimeLapse", "Area"],
+                itemHandlers=[],
+                layers = ["Floorplan", "Origin", "Zone", "Count", "Field", "Reader", "Item", "Ruler", "Tracer", "TimeLapse", "Area"],
                 wrapper = Object.create({
                         offAll: function () {
                             _.each(events, function (v, k) {
@@ -33,6 +34,18 @@ module.exports = (function (app) {
                                 return layer;
                             });
                             main.addChild.apply(main, children);
+                        },
+                        duplicateCanvas(canvas){
+                            let newCanvas = document.createElement("canvas");
+                            newCanvas.width = canvas.width;
+                            newCanvas.height = canvas.height;
+                            newCanvas.style.position = "absolute";
+                            newCanvas.style.top = newCanvas.style.left = "0";
+                            return newCanvas;
+                        },
+                        syncCoords(target){
+                            target.width = canvas.width;
+                            target.height = canvas.height;
                         },
                         selectLayer: function (c) {
                             var i = _.findIndex(layers, function (l) {
@@ -83,7 +96,7 @@ module.exports = (function (app) {
                                 scope.$apply();
                             });
 
-                            events.pressup = stage.on("pressup", ()=> {
+                            events.pressup = stage.on("pressup", () => {
                                 if ($state.current.name === "floorPlan.origin") {
                                     if (project.showReaders)
                                         this.refreshReaders();
@@ -102,7 +115,7 @@ module.exports = (function (app) {
                             scope.$on("EndPlanState", function (ev, state) {
                                 switch (state) {
                                     case "ruler":
-                                        return self.removeRuler();
+                                        break;
                                     case "trace":
                                         return self.endTrace();
                                     case "zone":
@@ -183,7 +196,7 @@ module.exports = (function (app) {
                                 };
                             };
                             return Tracer.trace(this).then((points) => {
-                                return this.selectZone(project.addZone(_.map(points, p=>makeZonePoint(p))));
+                                return this.selectZone(project.addZone(_.map(points, p => makeZonePoint(p))));
                             });
                         },
                         selectZone: function (zone) {
@@ -212,7 +225,7 @@ module.exports = (function (app) {
                         endTrace: function () {
                             Tracer.cancel();
                         },
-                        removeRuler: function () {
+                        hideRuler: function () {
                             this.removeChild(Ruler.shape);
                             this.update();
                         },
@@ -220,18 +233,32 @@ module.exports = (function (app) {
                             Ruler.length = v;
                             this.update();
                         },
+                        showRuler(){
+                            this.hideRuler();
+                            Ruler.coords.startX = undefined;
+                            this.addRuler();
+                        },
                         addRuler: function () {
-                            if (!this.containsShape(Ruler.shape))
+                            if (!this.isRulerVisible())
                                 this.addChild(Ruler.shape);
                             if (!Ruler.coords.startX)
                                 this.putRulerInCenter();
                             Ruler.draw(true);
                             this.rulerLength = Ruler.length;
                         },
+                        isRulerVisible(){
+                            return this.containsShape(Ruler.shape);
+                        },
                         putRulerInCenter(){
                             Ruler.coords.init(this.visibleCenter(), 20);
                             Ruler.draw(true);
                             this.rulerLength = Ruler.length;
+                        },
+                        zoneUnderRuler(endpoint){
+                            let shape = null;
+                            if (this.isRulerVisible())
+                                shape = _.find(zoneCollection, z => z.hitTest(Ruler.coords[endpoint + "X"], Ruler.coords[endpoint + "Y"]));
+                            return shape ? shape.zone : null;
                         },
                         setFloorPlan: function (plan) {
                             var self = this;
@@ -263,6 +290,14 @@ module.exports = (function (app) {
                                 y: screenY / zoom
                             };
                         },
+                        putReaderInCenter: function (reader) {
+                            let screenCenter = this.visibleCenter();
+                            reader.placement.x = Math.round10(this.stageToMeters(screenCenter.x, "x"), -2);
+                            reader.placement.y = Math.round10(this.stageToMeters(screenCenter.y, "y"), -2);
+                            reader.placement.z = 1.5;
+                            reader.placement.yaw = 0;
+                            this.addReader(reader);
+                        },
                         connect: function (p) {
                             var self = this;
                             if (p === project)
@@ -275,6 +310,9 @@ module.exports = (function (app) {
                             this.setFloorPlan(p.floorPlanUrl);
                             this.zones = p.zones;
                             self.showReaders(p.showReaders);
+                            self.dispatchEvent(new createjs.Event("connect").set({
+                                project: p
+                            }));
                             self.update();
                         },
                         disconnect: function () {
@@ -306,6 +344,7 @@ module.exports = (function (app) {
 
                         },
                         addReader: function (ref) {
+                            if (ref && !ref.placement) return;
                             var reader = Reader.create(ref, this);
                             readers.push(reader);
                             return this.selectReader(reader);
@@ -330,7 +369,7 @@ module.exports = (function (app) {
                         },
                         refreshReaders(){
                             _.each(readers, r => r.destroy());
-                            readers = _.map(project.readers, r => Reader.create(r, this, project.readerLLRP[r.name]));
+                            readers = _.map(_.filter(project.readers, r => r.placement), r => Reader.create(r, this, project.readerLLRP[r.name]));
                             this.update();
                         },
                         showReaders: function (v) {
@@ -341,7 +380,7 @@ module.exports = (function (app) {
                                         r.draw();
                                     });
                                 else
-                                    readers = _.map(project.readers, function (reader) {
+                                    readers = _.map(_.filter(project.readers, r => r.placement), function (reader) {
                                         return Reader.create(reader, self, project.readerLLRP[reader.name]);
                                     });
                             else
@@ -353,7 +392,7 @@ module.exports = (function (app) {
                                 $state.go("floorPlan");
                             self.update();
                         },
-                        showItems: function (v) {
+                        showItems(v) {
                             if (v)
                                 this.tweenItems(project.items);
                             else {
@@ -383,7 +422,7 @@ module.exports = (function (app) {
                         tweenItems: function (itms) {
                             var self = this;
                             _.each(itms.data, function (i) {
-                                if (!i.epc.match(self.epcFilter))
+                                if (_.find(itemHandlers, handler => !handler(i, items.data)))
                                     return;
                                 if (items[i.epc])
                                     items[i.epc].tween(i);
@@ -412,7 +451,7 @@ module.exports = (function (app) {
                         },
                         markEngagedReaders: function (engaged) {
                             engaged = engaged || {};
-                            _.each(readers, (r)=> r.setStatus(engaged[r.model.name] || "inactive"));
+                            _.each(readers, (r) => r.setStatus(engaged[r.model.name] || "inactive"));
                             this.update();
                         }
                     },
@@ -441,10 +480,10 @@ module.exports = (function (app) {
                             }
                         },
                         _origin: {
-                            get: ()=>project.origin,
+                            get: () => project.origin,
                             set: function (v) {
                                 this.origin = v;
-                                if(this.scope)
+                                if (this.scope)
                                     this.scope.$emit("shouldSave", "general");
                             }
                         },
@@ -506,7 +545,7 @@ module.exports = (function (app) {
                             set(v){
                                 _.each(zoneCollection || [], zone => zone.destroy());
                                 zoneCollection = _.map(v || [], zone => zone.floor === project.floorName ? Zones.createZone(zone, this) : null);
-                                zoneCollection = _.filter(zoneCollection, z=>z);
+                                zoneCollection = _.filter(zoneCollection, z => z);
                             }
                         },
                         zone: {
@@ -520,6 +559,9 @@ module.exports = (function (app) {
                                 zone = v;
                                 project.zone = v ? v.model : null;
                             }
+                        },
+                        zoneCollection: {
+                            get: () => zoneCollection
                         },
                         scale: {
                             enumerable: false,
@@ -537,8 +579,8 @@ module.exports = (function (app) {
                                     reader.deactivate();
                                 reader = v;
                                 project.reader = v ? _.find(project.readers, function (r) {
-                                    return r.placement === v.ref;
-                                }) : null;
+                                        return r.placement === v.ref;
+                                    }) : null;
                             }
                         },
                         item: {
@@ -585,6 +627,12 @@ module.exports = (function (app) {
                         },
                         project: {
                             get: () => project
+                        },
+                        canvas: {
+                            get: () => canvas
+                        },
+                        itemHandlers: {
+                            get: () => itemHandlers
                         }
                     });
             canvas.width = bkWidth;
@@ -607,6 +655,7 @@ module.exports = (function (app) {
             wrapper.initLayers();
             stage.addChild(main);
             wrapper.addChild(Origin.shape);
+            wrapper.itemHandlers.push(item => item.epc.match(wrapper.epcFilter));
             Origin.stage = wrapper;
             Ruler.init(wrapper);
             timeLapse.init(wrapper);
@@ -635,7 +684,8 @@ module.exports = (function (app) {
                 if (wrapper.activeTweens > 0)
                     stage.update();
             });
-            PresentationArea(wrapper, project);
+            PresentationArea(wrapper);
+            HeatMap(wrapper);
             return wrapper;
         }]);
 })(angular.module(window.mainApp));

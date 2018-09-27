@@ -6,7 +6,6 @@
 "use strict";
 
 module.exports = (function (app) {
-    var TWEEN_RATE = 250; //The rate in which dots for the item location move when the location changes
 
     app.factory("ItemModel", ["StageMetrics", function (stageMetrics) {
         return function (ref, stage) {
@@ -15,12 +14,13 @@ module.exports = (function (app) {
             return stageMetrics(ref, stage,xKey,yKey);
         };
     }]).factory("Item", ["CreateJS", "ItemModel", "$q", function (createjs, ItemModel, $q) {
-        return function (ref, stage, hash) {
+        return function (ref, stage, hashColor) {
             var shape = new createjs.Shape(),
-                ease = createjs.Ease.sineOut,
+                ease = stage.project.moveAnimation === "ease" ? createjs.Ease.sineOut : null,
+		tweenRate = stage.project.moveAnimation === "ease" ? 1500 : 250,
                 zoomHandler = null,
                 tweenPromise = null,
-                color = hash ? hash.Color || "gray" : "gray",
+                color = hashColor || "gray",
                 model = ItemModel(ref, stage),
                 wrapper = Object.create({
                     destroy: function (update) {
@@ -45,7 +45,7 @@ module.exports = (function (app) {
                             if (model._y === shape.y)
                                     defer.resolve();
                         stage.activeTweens += 1;
-                        createjs.Tween.get(shape).to({x: model._x, y: model._y}, TWEEN_RATE, null).call(function () {
+                        createjs.Tween.get(shape).to({x: model._x, y: model._y}, tweenRate, ease).call(function () {
                             stage.activeTweens -= 1;
                             defer.resolve();
                         });

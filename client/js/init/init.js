@@ -114,6 +114,9 @@ module.exports = (function (app) {
                 $rootScope.symbolUrl = function (fileName) {
                     return "/project/" + $rootScope.project.handle + "/symbols/" + ($rootScope.sanitize(fileName) || "symb");
                 };
+                $rootScope.hasAKey=function(obj,key){
+                    return key === undefined ? _.keys(obj).length : obj[key];
+                };
                 Object.defineProperties($rootScope, {
                     project: {
                         enumerable: true,
@@ -178,6 +181,10 @@ module.exports = (function (app) {
                     params: {
                         id: {value: "newProject", squash: true}
                     }
+                }).state("locate",{
+                    url: "/locate/:id/",
+                    templateUrl:"/templates/states/locate",
+                    controller: "Locate"
                 }).state("floorPlan", {
                     url: "/floorplan/:id/",
                     templateUrl: "/templates/states/floor_plan",

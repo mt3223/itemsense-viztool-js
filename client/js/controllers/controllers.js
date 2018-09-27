@@ -8,140 +8,150 @@
 module.exports = (function (app) {
 
     app.controller("topLevel", ["$scope", "Requester", "$http", "_", function ($scope, Requester, $http, _) {
-            function selectProject() {
-                return $scope.project.get().then(list => Requester.selectProject(list));
-            }
-            function setZoneMap(zoneMap){
-                return $scope.project.setCurrentZoneMap(zoneMap.name)
-                    .then((zoneMap)=>$scope.project.zoneMap = zoneMap);
-            }
-            function goTopState(){
-                const name = $scope.$state.current.name;
-                if(name.startsWith("floorPlan"))
-                    $scope.$state.go("floorPlan");
-            }
+        function selectProject() {
+            return $scope.project.get().then(list => Requester.selectProject(list));
+        }
 
-            $scope.cancelReaders = function () {
-                $scope.project.showReaders = false;
-                $scope.project.getReaders().then(function () {
-                    $scope.$emit("shouldNotSave","readers");
-                    $scope.project.showReaders = true;
-                    goTopState();
-                });
-            };
-            $scope.cancelZoneMap = function(){
-                $scope.project.getZoneMap($scope.project.zoneMap.name).then((zoneMap)=>{
-                    $scope.project.zoneMap = zoneMap;
-                    $scope.$emit("shouldNotSave","zones");
-                    goTopState();
-                });
-            };
+        function setZoneMap(zoneMap) {
+            return $scope.project.setCurrentZoneMap(zoneMap.name)
+                .then((zoneMap) => $scope.project.zoneMap = zoneMap);
+        }
 
-            $scope.about = function () {
-                Requester.about();
-            };
-            $scope.selectZoneMap = function () {
-                if ($scope.project.shouldSave.zones)
-                    if (!window.confirm("Changes to Current ZoneMap will be lost. Continue?"))
-                        return;
-                Requester.selectZoneMap().then(zoneMap=>setZoneMap(zoneMap));
-            };
-            $scope.deleteProject = function () {
-                selectProject().then((prj) => {
-                    if (window.confirm(`Are you sure you want to delete the ${prj.name} project?\n all floorplan and data will be deleted.`))
-                        $scope.project.deleteProject(prj).then(()=> {
-                            if (prj.handle === $scope.project.handle)
-                                $scope.$state.go("project", {id: "newProject"}, {reload: true});
-                        });
-                });
-            };
-            $scope.select = function () {
-                selectProject().then(prj => $scope.$state.go("project", {id: prj.handle}, {reload: true}));
-            };
-            $scope.setEpcFilter = function () {
-                if (!$scope.project)
+        function goTopState() {
+            const name = $scope.$state.current.name;
+            if (name.startsWith("floorPlan"))
+                $scope.$state.go("floorPlan");
+        }
+
+        $scope.cancelReaders = function () {
+            $scope.project.showReaders = false;
+            $scope.project.getReaders().then(function () {
+                $scope.$emit("shouldNotSave", "readers");
+                $scope.project.showReaders = true;
+                goTopState();
+            });
+        };
+        $scope.cancelZoneMap = function () {
+            $scope.project.getZoneMap($scope.project.zoneMap.name).then((zoneMap) => {
+                $scope.project.zoneMap = zoneMap;
+                $scope.$emit("shouldNotSave", "zones");
+                goTopState();
+            });
+        };
+
+        $scope.about = function () {
+            Requester.about();
+        };
+        $scope.selectZoneMap = function () {
+            if ($scope.project.shouldSave.zones)
+                if (!window.confirm("Changes to Current ZoneMap will be lost. Continue?"))
                     return;
+            Requester.selectZoneMap().then(zoneMap => setZoneMap(zoneMap));
+        };
+        $scope.deleteProject = function () {
+            selectProject().then((prj) => {
+                if (window.confirm(`Are you sure you want to delete the ${prj.name} project?\n all floorplan and data will be deleted.`))
+                    $scope.project.deleteProject(prj).then(() => {
+                        if (prj.handle === $scope.project.handle)
+                            $scope.$state.go("project", {id: "newProject"}, {reload: true});
+                    });
+            });
+        };
+        $scope.select = function () {
+            selectProject().then(prj => $scope.$state.go("project", {id: prj.handle}, {reload: true}));
+        };
+        $scope.setEpcFilter = function () {
+            if ($scope.project){
                 var newFilter = window.prompt("Filter EPC by regular expression", $scope.project.epcFilter);
-                if (newFilter === null)
-                    return;
-                $scope.project.epcFilter = newFilter;
-                $scope.$emit("shouldSave", "general");
-            };
-            $scope.setFloorName = function () {
-                if (!$scope.project)
-                    return;
+                if (newFilter !== null){
+                    $scope.project.epcFilter = newFilter;
+                    $scope.$emit("shouldSave", "general");
+                }
+            }
+        };
+        $scope.setFloorName = function () {
+            if ($scope.project)
+            {
                 var floorName = window.prompt("Set Floor Name for the project", $scope.project.floorName || "").trim();
-                if (!floorName) return;
-                $scope.$emit("shouldSave", "general");
-                $scope.project.floorName = floorName;
-            };
-            $scope.canStart = function () {
-                if (!$scope.project)
-                    return false;
+                if (floorName) {
+                    $scope.project.floorName = floorName;
+                    $scope.$emit("shouldSave", "general");
+                }
+            }
+        };
+        $scope.canStart = function () {
+            if (!$scope.project)
+                return false;
 
-                var recipe = $scope.project.recipe ? _.find($scope.project.recipes, function (r) {
+            var recipe = $scope.project.recipe ? _.find($scope.project.recipes, function (r) {
                     return r.name === $scope.project.recipe.name;
                 }) : null;
-                return recipe && ($scope.project.duration > 20);
-            };
-            $scope.targetClasses = function () {
-                return "/project/" + $scope.project.handle + "/csv/classes";
-            };
-            $scope.targetSymbols = function () {
-                return "/project/" + $scope.project.handle + "/csv/symbols";
-            };
-            $scope.csvUploadSuccess = function (file, message, flow, target) {
-                $scope.project.addTarget(target, JSON.parse(message));
-                $scope.$emit("shouldSave", "general");
-            };
-            $scope.newZoneMap = function () {
-                if (!$scope.project)
+            return recipe && $scope.project.duration !== null;
+        };
+        $scope.targetClasses = function () {
+            return "/project/" + $scope.project.handle + "/csv/classes";
+        };
+        $scope.targetSymbols = function () {
+            return "/project/" + $scope.project.handle + "/csv/symbols";
+        };
+        $scope.csvUploadSuccess = function (file, message, flow, target) {
+            $scope.project.addTarget(target, JSON.parse(message));
+            $scope.$emit("shouldSave", "general");
+        };
+        $scope.newZoneMap = function () {
+            if (!$scope.project)
+                return;
+            var zoneMapName = (window.prompt("Name of new Zone Map", "") || "").trim();
+            if (!zoneMapName)
+                return;
+            if (_.find($scope.project.zoneMaps, function (z) {
+                    return z.name === zoneMapName;
+                }))
+                if (!window.confirm("Zone Map " + zoneMapName + " exists. do you want to clear it?"))
                     return;
-                var zoneMapName = (window.prompt("Name of new Zone Map", "") || "").trim();
-                if (!zoneMapName)
-                    return;
-                if (_.find($scope.project.zoneMaps, function (z) {
-                        return z.name === zoneMapName;
-                    }))
-                    if (!window.confirm("Zone Map " + zoneMapName + " exists. do you want to clear it?"))
-                        return;
-                $scope.project.newZoneMap(zoneMapName);
+            $scope.project.newZoneMap(zoneMapName);
+            $scope.$emit("shouldSave", "general");
+        };
+        $scope.trace = function () {
+            if ($scope.$state.is("floorPlan.trace"))
+                $scope.$state.go("floorPlan");
+            else
+                $scope.$state.go("floorPlan.trace");
+        };
+        $scope.setPresentationArea = function () {
+            if ($scope.$state.is("floorPlan.area"))
+                $scope.$state.go("floorPlan");
+            else
+                $scope.$state.go("floorPlan.area");
+        };
+        $scope.planUpload = function () {
+            if ($scope.project)
+                return "/project/" + $scope.project.handle + "/upload/1";
+        };
+        $scope.uploadSuccess = function (flow, message) {
+            message = JSON.parse(message);
+            $scope.project.floorPlan = message.filename;
+            $scope.imageVersion += 1;
+            $scope.$emit("shouldSave", "general");
+        };
+        $scope.toggle = function (prop, ignore) {
+            $scope.project[prop] = !$scope.project[prop];
+            if (!ignore)
                 $scope.$emit("shouldSave", "general");
-            };
-            $scope.trace = function () {
-                if ($scope.$state.is("floorPlan.trace"))
-                    $scope.$state.go("floorPlan");
-                else
-                    $scope.$state.go("floorPlan.trace");
-            };
-            $scope.setPresentationArea = function () {
-                if ($scope.$state.is("floorPlan.area"))
-                    $scope.$state.go("floorPlan");
-                else
-                    $scope.$state.go("floorPlan.area");
-            };
-            $scope.planUpload = function () {
-                if ($scope.project)
-                    return "/project/" + $scope.project.handle + "/upload/1";
-            };
-            $scope.uploadSuccess = function (flow, message) {
-                message = JSON.parse(message);
-                $scope.project.floorPlan = message.filename;
-                $scope.imageVersion += 1;
-                $scope.$emit("shouldSave", "general");
-            };
-            $scope.toggle = function (prop, ignore) {
-                $scope.project[prop] = !$scope.project[prop];
-                if (!ignore)
-                    $scope.$emit("shouldSave", "general");
-            };
-            $scope.saveClass =function(){
-                return (Object.keys($scope.project.shouldSave).length) ? "btn-warning": "hidden";
-            };
-            $scope.shouldSave=function(key){
-                $scope.$emit("shouldSave",key);
-            };
-        }])
+        };
+        $scope.toggleRuler = function () {
+            if ($scope.project.stage.isRulerVisible())
+                $scope.project.stage.hideRuler();
+            else
+                $scope.project.stage.showRuler();
+        };
+        $scope.saveClass = function () {
+            return (Object.keys($scope.project.shouldSave).length) ? "btn-warning" : "hidden";
+        };
+        $scope.shouldSave = function (key) {
+            $scope.$emit("shouldSave", key);
+        };
+    }])
         .factory("Requester", ["$uibModal", "_", function ($uibModal, _) {
             function openModal(options) {
                 var opts = _.extend({animation: true, size: "lg", params: {}}, options);
@@ -228,19 +238,31 @@ module.exports = (function (app) {
             $scope.mainTab = {project: true};
 
             $scope.projectInfo = function () {
-                if (!$scope.project.job)
-                    return "";
-                var job = $scope.project.job,
-                    start = new Date(job.creationTime.substr(0, 24)),
-                    last = new Date(job.lastActivityTime.substr(0, 24)),
-                    duration = job.activeDuration.substr(2),
-                    activity = Math.round10((last.getTime() - start.getTime()) / 1000, -2);
-                duration = duration.substr(0, duration.length - 1);
-                if (job.status === "COMPLETE")
-                    return "Last job completed at " + last.toLocaleString() + " for " + duration + " seconds";
-                else if (job.status === "STOPPED")
-                    return "Last job cancelled at " + last.toLocaleString() + " after " + activity + " seconds";
-                return "Started " + start.toLocaleString() + " scheduled for " + job.job.durationSeconds + " seconds";
+                var message = "";
+                if ($scope.project.job){
+                    var job = $scope.project.job;
+
+                    var start = new Date(job.creationTime.substr(0, 24));
+                    var last = new Date(job.lastActivityTime.substr(0, 24));
+
+                    var duration = job.activeDuration.substr(2);
+                    duration = duration.substr(0, duration.length - 1);
+
+                    var activity = Math.round10((last.getTime() - start.getTime()) / 1000, -2);
+                    
+                    if (job.status === "COMPLETE"){
+                        message = "Last job completed at " + last.toLocaleString() + " for " + duration + " seconds";
+                    } else if (job.status === "STOPPED") {
+                        if(job.stopReason === "JOB_COMPLETED"){
+                            message = "Last job completed at " + last.toLocaleString() + " for " + duration + " seconds";
+                        } else {
+                            message = "Last job cancelled at " + last.toLocaleString() + " after " + activity + " seconds";
+                        }
+                    } else {
+                        message = "Started " + start.toLocaleString() + " scheduled for " + job.job.durationSeconds + " seconds";
+                    }
+                }
+                return message;
             };
             $scope.getFacilities = function () {
                 if ($scope.project.itemSense && $scope.project.user && $scope.project.password)
@@ -252,12 +274,12 @@ module.exports = (function (app) {
                 if (!n) $scope.$emit("shouldSave", "general");
             });
         }])
-        .controller("FloorPlan", ["$scope", function ($scope) {
+        .controller("FloorPlan", ["$scope", "_", function ($scope, _) {
             $scope.mainTab = {floorPlan: true};
             $scope.fields = [{i: 0, n: 'Hide'}, {i: 1, n: '3 Meters'}, {i: 2, n: '4 Meters'}, {i: 3, n: '5 Meters'}];
             $scope.$on("keydown", function (ev, key) {
                 if ($scope.$state.current.name === "floorPlan.zone") {
-                    if (key.srcElement.tagName === "BODY") {
+                    if (key.target.tagName === "BODY") {
                         if (key.keyCode === 8 || key.keyCode === 46) //backspace || Delete
                             $scope.project.deleteZone();
                         else if (key.keyCode === 67 && (key.metaKey || key.ctrlKey)) //Control or Command-C
@@ -266,6 +288,13 @@ module.exports = (function (app) {
                     }
                 }
             });
+            $scope.placeReader = function (reader) {
+                $scope.project.placeReader(reader);
+                $scope.$emit("shouldSave", "readers");
+                $scope.$state.go("floorPlan.reader", {readerName: reader.name});
+            };
+
+            $scope.hasUnplaced = () => _.find($scope.project.readers, r => !r.placement);
             $scope.imageSrc = function () {
                 //this doesn't hold previous version of the image, it just forces the ng-src to reload the new image
                 if ($scope.project)
@@ -313,8 +342,8 @@ module.exports = (function (app) {
                 if (!n) $scope.$emit("shouldSave", "general");
             });
         }])
-        .controller("Readers", ["$scope", function ($scope) {
-            const readerStatuses ={
+        .controller("Readers", ["$scope", "_", function ($scope, _) {
+            const readerStatuses = {
                 engage: "In current Job",
                 occupied: "Occupied by another process",
                 disengage: "Idle",
@@ -322,6 +351,14 @@ module.exports = (function (app) {
                 disconnected: "Disconnected",
                 unknown: "UnKnown"
             };
+
+            $scope.readerTypes = [
+                {label: 'xArray', data: 'XARRAY'},
+                {label: 'xSpan', data: 'XSPAN'},
+                {label: 'xPortal', data: 'XPORTAL'},
+                {label: 'Spot Reader', data: 'SPEEDWAY'},
+            ];
+
             function makeReader() {
                 var newReader = {
                     address: "",
@@ -332,22 +369,23 @@ module.exports = (function (app) {
                     antennaZones: null,
                     labels: null,
                     placement: {
-                        x: Math.round10($scope.$stateParams.x || 0,-2),
-                        y: Math.round10($scope.$stateParams.y || 0,-2),
+                        x: Math.round10($scope.$stateParams.x || 0, -2),
+                        y: Math.round10($scope.$stateParams.y || 0, -2),
                         z: 1.5,
                         yaw: 0, pitch: 0, roll: 0,
                         floor: $scope.project.floorName || ""
                     }
                 };
                 $scope.project.readers.push(newReader);
-                if($scope.project.stage)
+                if ($scope.project.stage)
                     $scope.project.stage.addReader(newReader);
                 else
                     $scope.project.reader = newReader;
                 $scope.$emit("shouldSave", "readers");
                 return newReader;
             }
-            if($scope.$stateParams.readerName)
+
+            if ($scope.$stateParams.readerName)
                 $scope.project.stage.selectReader($scope.$stateParams.readerName);
             $scope.activeReader = $scope.project.reader || makeReader();
 
@@ -356,13 +394,19 @@ module.exports = (function (app) {
                 $scope.$emit("shouldSave", "readers");
             });
 
-            $scope.readerStatus=function(reader){
+            $scope.moveToRulerEnd = function (endpoint) {
+                $scope.activeReader.placement = _.merge($scope.activeReader.placement, getRulerXY($scope.project, endpoint));
+                $scope.project.updateReader($scope.activeReader);
+                $scope.shouldSave();
+            };
+
+            $scope.readerStatus = function (reader) {
                 return readerStatuses[$scope.project.readerLLRP[reader.name] || "newReader"] || readerStatuses.unknown;
             };
             $scope.$watch(function () {
                 return $scope.project.reader;
             }, function (n) {
-                if (n && n !== $scope.activeReader){
+                if (n && n !== $scope.activeReader) {
                     $scope.activeReader = n;
                     $scope.readerForm.$setPristine();
                 }
@@ -379,11 +423,46 @@ module.exports = (function (app) {
 
             $scope.save = function () {
                 $scope.project.postReaders($scope.activeReader).then(function () {
-                    $scope.$emit("shouldNotSave","readers");
+                    $scope.$emit("shouldNotSave", "readers");
                     $scope.$state.go("floorPlan");
                 });
             };
 
+            $scope.hasRuler = function () {
+                return $scope.project.stage.isRulerVisible();
+            };
+            $scope.hitsZone = function (endPoint) {
+                return $scope.project.stage.zoneUnderRuler(endPoint);
+            };
+            $scope.setToZone = function (endpoint, antenna) {
+                $scope.activeReader.antennaZones[antenna] = getAntennaZoneName(endpoint);
+                $scope.shouldSave("readers");
+            };
+
+            $scope.addAntenna = function () {
+                let v = parseInt((window.prompt("Antenna ID") || "").trim());
+                if (!v || v < 0) return;
+                if (!$scope.activeReader.antennaZones)
+                    $scope.activeReader.antennaZones = {};
+                $scope.activeReader.antennaZones[v] = "Antenna_" + v;
+                $scope.shouldSave("readers");
+            };
+            $scope.deleteAntenna = function (v) {
+                delete $scope.activeReader.antennaZones[v];
+                $scope.shouldSave("readers");
+            };
+            function getAntennaZoneName(endpoint) {
+                let zone = $scope.project.stage.zoneUnderRuler(endpoint);
+                if (!zone) return $scope.activeReader.readerZone;
+                let xy = getRulerXY($scope.project, endpoint);
+                return `${zone.name}_${xy.x}_${xy.y}`;
+            }
+
+            function getRulerXY(project, endpoint) {
+                let x = Math.round10(project.stageToMeters(project.rulerCoords[endpoint + "X"], 'x'), -2);
+                let y = Math.round10(project.stageToMeters(project.rulerCoords[endpoint + "Y"], 'y'), -2);
+                return {x: x, y: y};
+            }
         }])
         .controller("Classes", ["$scope", "_", function ($scope, _) {
             $scope.mainTab = {classes: true};
@@ -407,7 +486,7 @@ module.exports = (function (app) {
                 var sort = !$scope.sortStatus[key];
                 $scope.sortStatus = {};
                 $scope.sortStatus[key] = sort;
-                $scope.classes = _.sortByOrder($scope.classes, [key], sort);
+                $scope.classes = _.orderBy($scope.classes, [key], sort);
             };
             $scope.editRecord = function (record) {
                 $scope.$state.go("classes.epc", {epc: record.EPC});

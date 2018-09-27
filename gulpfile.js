@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Created by rezaalemy on 15-03-29.
  * Gulp file to gather Js and Sass files under ./gulp/js, ./gulp/sass
