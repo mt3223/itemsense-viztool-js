@@ -26,5 +26,5 @@ $ npm start
 ```
 
 
-Once the server executable is running, just browse to **http://localhost:3000** to see it in action.  Videos on usage to be posted on youtube shortly.
+Once the server executable is running, just browse to **http://localhost:3001** to see it in action.  Videos on usage to be posted on youtube shortly.
 
