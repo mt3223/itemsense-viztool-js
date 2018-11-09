@@ -6,5 +6,5 @@ RUN npm install
 RUN npm install -g gulp
 COPY . /usr/src/app
 RUN gulp compile
-EXPOSE 3000
+EXPOSE 3001
 CMD ["npm","start"]
